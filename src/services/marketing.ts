@@ -22,6 +22,20 @@ export type DetalhesPagina = {
   };
 };
 
+export type ProdutoInfo = {
+  id: number;
+  nome: string;
+  descricao?: string | null;
+  preco?: string | number | null;
+  midias?: Array<string | { url: string }>;
+};
+
+export type Parcela = {
+  quantidade: number; // ex.: 12
+  valor: number; // valor da parcela
+  juros?: number | null; // se houver
+};
+
 export type ProdutoCatalogo = {
   id: number;
   nome: string;
@@ -66,3 +80,17 @@ export const toMediaURL = (caminho?: string | null) => {
     ? trimmed
     : `https://playnee.s3.us-east-005.backblazeb2.com/prod/${trimmed}`;
 };
+
+export async function getProdutoInfo(produtoId: number, token: string) {
+  const { data } = await api.get(`/api/v1/marketing/p/${produtoId}/info`, {
+    params: { token: token?.trim() },
+  });
+  return data;
+}
+
+export async function getProdutoInstallments(produtoId: number, token: string) {
+  const { data } = await api.get(`/v1/marketing/p/${produtoId}/installments`, {
+    params: { token },
+  });
+  return data as Array<{ quantidade: number; valor: number; juros?: number }>;
+}

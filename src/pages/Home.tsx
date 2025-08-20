@@ -37,13 +37,13 @@ export default function Home() {
   }
 
   return (
-    <section className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8 mt-6">
+    <section className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8 mt-6 ">
       <h2 className="text-center text-lg sm:text-xl text-gray-700">
         Em qual <span className="font-bold">LOJA</span> você deseja ser
         atendido?
       </h2>
 
-      <div className="mt-6 space-y-4 flex flex-col items-center">
+      <div className="mt-6 mb-6 space-y-4  flex flex-col items-center">
         {lojas.map((loja) => (
           <Link
             key={loja.empresa_id}

@@ -9,9 +9,15 @@ import {
 
 export function useProdutosPorEmpresa(empresaId: number | null) {
   const { getEMSIdByEmpresaId } = useMarcas();
+
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [produtos, setProdutos] = useState<ProdutoCatalogo[]>([]);
+
+  // NOVOS estados expostos
+  const [token, setToken] = useState<string | null>(null);
+  const [params, setParams] = useState<Map<string, string>>(new Map());
+  const [metaEmpresaId, setMetaEmpresaId] = useState<number | null>(null);
 
   const emsId = useMemo(
     () => (empresaId ? getEMSIdByEmpresaId(empresaId) : null),
@@ -26,10 +32,27 @@ export function useProdutosPorEmpresa(empresaId: number | null) {
       setErro(null);
       try {
         const detalhes = await getDetalhesPagina(emsId.trim());
-        const token = detalhes.meta.access;
-        const tokenEmpresaId = Number(detalhes.meta.empresa_id); // <- ID do token
 
-        const catalogo = await getPsCatalog(token);
+        const access = detalhes.meta?.access as string;
+        const tokenEmpresaId = Number(detalhes.meta?.empresa_id);
+
+        // transforma params[] -> Map para facilitar no card
+        const paramsMap = new Map<string, string>(
+          (detalhes.params ?? []).map((p: any) => [
+            String(p.chave),
+            String(p.valor ?? ""),
+          ])
+        );
+
+        if (!ativo) return;
+
+        setToken(access ?? null);
+        setParams(paramsMap);
+        setMetaEmpresaId(
+          Number.isFinite(tokenEmpresaId) ? tokenEmpresaId : null
+        );
+
+        const catalogo = await getPsCatalog(access);
 
         // alvo: prioriza o ID do token; se não vier, usa o da rota
         const alvoId = Number.isFinite(tokenEmpresaId)
@@ -44,16 +67,15 @@ export function useProdutosPorEmpresa(empresaId: number | null) {
         // fallback: se o filtro zerar mas o catálogo tem itens, mostra todos
         const listaFinal = filtrados.length ? filtrados : catalogo;
 
-        if (ativo) {
-          setProdutos(dedup(listaFinal));
-          // Debug opcional:
-          console.debug("[Produtos]", {
-            empresaIdRota: empresaId,
-            tokenEmpresaId,
-            totalCatalogo: catalogo.length,
-            aposFiltro: filtrados.length,
-          });
-        }
+        setProdutos(dedup(listaFinal));
+
+        // Debug opcional
+        console.debug("[Produtos]", {
+          empresaIdRota: empresaId,
+          tokenEmpresaId,
+          totalCatalogo: catalogo.length,
+          aposFiltro: filtrados.length,
+        });
       } catch (e: any) {
         if (ativo) setErro(e?.message ?? "Falha ao carregar produtos.");
       } finally {
@@ -66,7 +88,8 @@ export function useProdutosPorEmpresa(empresaId: number | null) {
     };
   }, [empresaId, emsId]);
 
-  return { produtos, loading, erro, emsId };
+  // agora o hook expõe token/params/metaEmpresaId também
+  return { produtos, loading, erro, emsId, token, params, metaEmpresaId };
 }
 
 // evita duplicados por id

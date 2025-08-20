@@ -1,117 +1,110 @@
 import React from "react";
-import noImage from "../assets/cb300.webp";
-import { type ProductProps } from "../../interfaces/interfaces";
+import { toMediaURL } from "../services/marketing";
 
-interface CardProductProps extends ProductProps {
-  onConsorcioClick?: () => void;
-  onSaibaMaisClick?: () => void;
-  onFinanciamentoClick?: () => void;
-  onFaleComigoClick?: () => void;
-  params: Map<string, string>;
-}
+type Props = {
+  id: number;
+  nome: string;
+  capa?: string | null;
+  preco?: string | number | null;
 
-// const STORAGE_BASE = "https://playnee.s3.us-east-005.backblazeb2.com/prod";
+  showPrice?: boolean; // padrão: false
+  onSaibaMaisClick?: (id: number) => void;
+  onConsorcioClick?: (id: number) => void;
+  onFinanciamentoClick?: (id: number) => void;
+  onFaleComigoClick?: (id: number) => void;
 
-// util: bool seguro p/ Map<string,string>
-const isTrue = (v: string | undefined | null) =>
-  String(v).toLowerCase() === "true";
+  className?: string; // opcional para customizações
+};
 
-function formatarReal(preco: number | string | undefined) {
-  if (preco === undefined || preco === null) return "";
-  const n = typeof preco === "string" ? parseFloat(preco) : preco;
-  if (!Number.isFinite(n)) return "";
-  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
+const toBRL = (v: string | number | null | undefined) => {
+  const n =
+    typeof v === "number" ? v : parseFloat(String(v ?? "").replace(",", "."));
+  return Number.isFinite(n)
+    ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+    : "";
+};
 
-const CardProduct: React.FC<CardProductProps> = ({
-  capa,
+export default function CardProduct({
+  id,
   nome,
+  capa,
   preco,
-  onConsorcioClick,
+  showPrice = false,
   onSaibaMaisClick,
+  onConsorcioClick,
   onFinanciamentoClick,
   onFaleComigoClick,
-  params,
-}) => {
-  const src = noImage;
-
-  const showPrice = isTrue(params.get("is_show_price"));
-  const showConsorcio = isTrue(params.get("is_consorcio"));
-  const showFinanciamento = isTrue(params.get("is_financiamento"));
-  const showTalkToSeller = isTrue(params.get("is_talk_to_seller"));
+  className = "",
+}: Props) {
+  const src = capa ? toMediaURL(capa) : "";
 
   return (
-    <div className="w-full max-w-sm bg-white rounded-2xl shadow-md border border-gray-100 p-5">
-      {/* Título */}
-      <h4 className="text-gray-800 font-semibold text-lg leading-snug text-center">
+    <li
+      className={`bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition flex flex-col p-6 ${className}`}
+    >
+      {/* título com altura reservada */}
+      <h3 className="text-lg font-semibold text-gray-800 text-center leading-6 mb-3 line-clamp-2 min-h-[3rem]">
         {nome}
-      </h4>
+      </h3>
 
-      {/* Imagem */}
-      <div className="mt-4 mb-5 h-44 sm:h-52 w-full bg-gray-50 rounded-xl flex items-center justify-center overflow-hidden">
+      {/* vitrine padronizada */}
+      <div className="relative w-full aspect-[4/3] mb-4">
         <img
           src={src}
-          alt="capa do produto"
-          className="h-full w-full object-contain"
+          alt={nome}
+          loading="lazy"
+          className="absolute inset-0 w-full h-full object-contain"
           onError={(e) => {
-            const img = e.currentTarget as HTMLImageElement;
-            img.onerror = null;
-            img.src = noImage;
+            e.currentTarget.onerror = null;
+            e.currentTarget.src =
+              "data:image/svg+xml;utf8," +
+              encodeURIComponent(
+                `<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400'>
+                   <rect width='100%' height='100%' fill='#f3f4f6'/>
+                   <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle'
+                         font-family='sans-serif' font-size='16' fill='#9ca3af'>sem imagem</text>
+                 </svg>`
+              );
           }}
         />
       </div>
 
-      {/* Preço (opcional) */}
-      {showPrice && (
-        <p className="text-center text-gray-700 text-sm mb-3">
-          {preco
-            ? `A partir de ${formatarReal(preco)}`
-            : "Preço não disponível"}
+      {/* preço (opcional) mantendo altura */}
+      {showPrice ? (
+        <p className="text-base font-bold text-gray-700 text-center mb-4 min-h-[1.5rem]">
+          {preco ? `A partir de ${toBRL(preco)}` : "Preço não disponível"}
         </p>
+      ) : (
+        <div className="mb-4 min-h-[1.5rem]" />
       )}
 
-      {/* Botões */}
-      <div className="flex flex-col gap-3">
+      {/* botões */}
+      <div className="mt-auto space-y-3">
         <button
-          type="button"
-          onClick={onSaibaMaisClick}
-          className="w-full py-3 rounded-full bg-red-600 text-white font-semibold shadow-sm hover:bg-red-700 transition-colors"
+          className="w-full py-3 rounded-full bg-red-600 text-white font-semibold hover:bg-red-700 transition"
+          onClick={() => onSaibaMaisClick?.(id)}
         >
           Saiba mais
         </button>
-
-        {showConsorcio && (
-          <button
-            type="button"
-            onClick={onConsorcioClick}
-            className="w-full py-3 rounded-full border border-red-500 text-red-600 bg-white font-medium hover:bg-red-50  transition-colors"
-          >
-            Consórcio
-          </button>
-        )}
-
-        {showFinanciamento && (
-          <button
-            type="button"
-            onClick={onFinanciamentoClick}
-            className="w-full py-3 rounded-full border border-red-500 text-red-600 bg-white font-medium hover:bg-red-50  transition-colors"
-          >
-            Financiamento
-          </button>
-        )}
-
-        {showTalkToSeller && (
-          <button
-            type="button"
-            onClick={onFaleComigoClick}
-            className="w-full py-3 rounded-full border border-red-500 text-red-600 bg-white font-medium hover:bg-red-50  transition-colors"
-          >
-            Falar com o Vendedor
-          </button>
-        )}
+        <button
+          className="w-full py-3 rounded-full border border-red-600 text-red-600 font-semibold hover:bg-red-50 transition"
+          onClick={() => onConsorcioClick?.(id)}
+        >
+          Consórcio
+        </button>
+        <button
+          className="w-full py-3 rounded-full border border-red-600 text-red-600 font-semibold hover:bg-red-50 transition"
+          onClick={() => onFinanciamentoClick?.(id)}
+        >
+          Financiamento
+        </button>
+        <button
+          className="w-full py-3 rounded-full border border-red-600 text-red-600 font-semibold hover:bg-red-50 transition"
+          onClick={() => onFaleComigoClick?.(id)}
+        >
+          Falar com o Vendedor
+        </button>
       </div>
-    </div>
+    </li>
   );
-};
-
-export default CardProduct;
+}

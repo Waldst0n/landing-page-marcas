@@ -11,6 +11,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/loja/:id" element={<Produtos />} />
+
         {/* 404 simples (opcional) */}
         <Route
           path="*"
