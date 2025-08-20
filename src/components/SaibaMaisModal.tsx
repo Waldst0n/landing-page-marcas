@@ -225,7 +225,7 @@ export default function SaibaMaisModal({
                       <>
                         <button
                           onClick={goPrev}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/60 text-white w-10 h-10 rounded-full grid place-items-center"
+                          className="absolute left-3  top-1/2 -translate-y-1/2 bg-black/60 text-white w-10 h-10 rounded-full grid place-items-center"
                           aria-label="Anterior"
                         >
                           ‹
@@ -304,12 +304,14 @@ export default function SaibaMaisModal({
                       />
                     )}
                     {iframeHtml && (
-                      <StaticHTML html={iframeHtml} className="mt-2" />
+                      <StaticHTML
+                        html={iframeHtml}
+                        className="mt-2 flex w-full items-center justify-center"
+                      />
                     )}
                   </>
                 )}
 
-                {/* Parcelas (opcional) */}
                 {parcelas?.length > 0 && (
                   <div>
                     <h4 className="font-semibold mb-2">Parcelas</h4>
