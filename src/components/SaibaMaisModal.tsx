@@ -1,4 +1,3 @@
-// src/components/SaibaMaisModal.tsx
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import { getProdutoInfo, getProdutoInstallments } from "../services/marketing";
 import { toMediaURL } from "../services/marketing";
@@ -12,7 +11,7 @@ type Props = {
   onOpenConsorcioModal?: () => void;
   onOpenFinanciamentoModal?: () => void;
   whatsapp?: string;
-  autoplayDelayMs?: number; // intervalo do autoplay (default 4000)
+  autoplayDelayMs?: number;
 };
 
 const isTrue = (v?: string | null) => String(v ?? "").toLowerCase() === "true";
@@ -25,7 +24,6 @@ const money = (v?: number | string | null) => {
     : "";
 };
 
-// Normaliza array de mídias (string ou { url })
 function normalizeMidias(info: any): string[] {
   const arr = info?.midias ?? info?.imagens ?? [];
   return (arr as any[])
@@ -34,7 +32,6 @@ function normalizeMidias(info: any): string[] {
     .map((p: string) => toMediaURL(p));
 }
 
-// Decodifica HTML e separa o primeiro <iframe> (se existir)
 function decodeAndSplitIframe(html?: string) {
   if (!html) return { textHtml: "", iframeHtml: "" };
 
@@ -44,7 +41,7 @@ function decodeAndSplitIframe(html?: string) {
     return txt.value;
   };
 
-  const decoded = decode(decode(html)); // dupla decodificação
+  const decoded = decode(decode(html));
   const start = decoded.indexOf("<iframe");
   const end = decoded.indexOf("</iframe>");
 
@@ -56,8 +53,6 @@ function decodeAndSplitIframe(html?: string) {
   return { textHtml: decoded, iframeHtml: "" };
 }
 
-/** Renderiza HTML estático sem “piscar”.
- *  Só escreve no DOM quando `html` muda (não em cada re-render do pai). */
 const StaticHTML = memo(function StaticHTML({
   html,
   className,
@@ -88,13 +83,12 @@ export default function SaibaMaisModal({
   const [parcelas, setParcelas] = useState<any[]>([]);
   const [idx, setIdx] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
-  const [paused, setPaused] = useState(false); // pausa do autoplay
+  const [paused, setPaused] = useState(false);
 
   const canPrice = isTrue(params?.get("is_show_price"));
   const canCons = isTrue(params?.get("is_consorcio"));
   const canFin = isTrue(params?.get("is_financiamento"));
 
-  // Bloqueia scroll do body quando o modal está aberto
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -148,7 +142,6 @@ export default function SaibaMaisModal({
     [info?.descricao]
   );
 
-  // Autoplay do carrossel
   const timerRef = useRef<number | null>(null);
   const clearTimer = () => {
     if (timerRef.current) {
@@ -164,7 +157,7 @@ export default function SaibaMaisModal({
 
     timerRef.current = window.setInterval(() => {
       setIdx((i) => (i === imagens.length - 1 ? 0 : i + 1));
-    }, Math.max(1500, autoplayDelayMs)); // min 1.5s por segurança
+    }, Math.max(1500, autoplayDelayMs));
 
     return clearTimer;
   }, [open, paused, imagens.length, autoplayDelayMs]);
@@ -178,14 +171,10 @@ export default function SaibaMaisModal({
 
   return (
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
-      {/* Backdrop */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
 
-      {/* Wrapper centralizador */}
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        {/* Modal: altura limitada + coluna para rolar o corpo */}
         <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl max-h-[90vh] sm:max-h-[85vh] flex flex-col overflow-hidden">
-          {/* Header fixo */}
           <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white z-10">
             <h3 className="text-lg font-semibold">
               {loading ? "Carregando..." : info?.nome ?? "Detalhes"}
@@ -199,7 +188,6 @@ export default function SaibaMaisModal({
             </button>
           </div>
 
-          {/* Body rolável */}
           <div className="px-6 py-5 space-y-6 overflow-y-auto">
             {loading ? (
               <p className="text-gray-600">Carregando…</p>
@@ -207,7 +195,6 @@ export default function SaibaMaisModal({
               <p className="text-red-600">{erro}</p>
             ) : info ? (
               <>
-                {/* Carrossel com autoplay (pausa no hover) */}
                 {imagens.length > 0 && (
                   <div
                     className="relative"
@@ -256,7 +243,6 @@ export default function SaibaMaisModal({
                   </div>
                 )}
 
-                {/* Ações */}
                 <div className="flex flex-col sm:flex-row gap-3">
                   {canCons && (
                     <button
@@ -284,7 +270,6 @@ export default function SaibaMaisModal({
                   </a>
                 </div>
 
-                {/* Preço */}
                 {canPrice && (
                   <div className="flex items-center gap-3">
                     <span className="text-gray-600 font-medium">Preço</span>
@@ -294,7 +279,6 @@ export default function SaibaMaisModal({
                   </div>
                 )}
 
-                {/* Descrição: texto + (iframe se houver) */}
                 {(textHtml || iframeHtml) && (
                   <>
                     {textHtml && (
@@ -310,23 +294,6 @@ export default function SaibaMaisModal({
                       />
                     )}
                   </>
-                )}
-
-                {parcelas?.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold mb-2">Parcelas</h4>
-                    <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {parcelas.map((p) => (
-                        <li
-                          key={p.quantidade}
-                          className="border rounded-lg p-2 text-sm"
-                        >
-                          {p.quantidade}x de {money(p.valor)}
-                          {p.juros ? " c/ juros" : ""}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
                 )}
               </>
             ) : null}

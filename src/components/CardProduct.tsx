@@ -98,12 +98,6 @@ export default function CardProduct({
         >
           Financiamento
         </button>
-        <button
-          className="w-full py-3 rounded-full border border-red-600 text-red-600 font-semibold hover:bg-red-50 transition"
-          onClick={() => onFaleComigoClick?.(id)}
-        >
-          Falar com o Vendedor
-        </button>
       </div>
     </li>
   );

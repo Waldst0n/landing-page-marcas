@@ -38,6 +38,10 @@ type MarcasContextType = {
 
   getEMSIdByEmpresaId: (id: number) => string | null;
   currentEMSId: string | null;
+
+  // 🔹 novos helpers para anúncio
+  getAnuncioIdByEmpresaId: (id: number) => number | null;
+  currentAnuncioId: number | null;
 };
 
 const MarcasContext = createContext({} as MarcasContextType);
@@ -52,7 +56,7 @@ export function MarcasProvider({ children }: { children: React.ReactNode }) {
     return saved ? Number(saved) : null;
   });
 
-  const ENDPOINT_MARCAS = "/api/v1/marcas";
+  const ENDPOINT_MARCAS = "/v1/marcas";
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -60,7 +64,7 @@ export function MarcasProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await api.get<LojaOuMarca[]>(ENDPOINT_MARCAS, {
         headers: {
-          empresa_id: 342, // empresaId,
+          empresa_id: 496, // empresaId,
         },
       });
       setData(res.data || []);
@@ -80,10 +84,7 @@ export function MarcasProvider({ children }: { children: React.ReactNode }) {
   }, [fetchAll]);
 
   useEffect(() => {
-    if (!data || data.length === 0) {
-      // nada a selecionar
-      return;
-    }
+    if (!data || data.length === 0) return;
     const exists = empresaId
       ? data.some((d) => d.empresa_id === empresaId)
       : false;
@@ -109,6 +110,18 @@ export function MarcasProvider({ children }: { children: React.ReactNode }) {
     [getByEmpresaId]
   );
 
+  // 🔹 anuncio_id por empresa
+  const getAnuncioIdByEmpresaId = useCallback(
+    (id: number) => getByEmpresaId(id)?.anuncio_id ?? null,
+    [getByEmpresaId]
+  );
+
+  // 🔹 anuncio_id da empresa atualmente selecionada
+  const currentAnuncioId = useMemo(() => {
+    if (empresaId == null) return null;
+    return getAnuncioIdByEmpresaId(empresaId);
+  }, [empresaId, getAnuncioIdByEmpresaId]);
+
   const currentEMSId = useMemo(() => {
     if (empresaId == null) return null;
     return getEMSIdByEmpresaId(empresaId);
@@ -125,6 +138,8 @@ export function MarcasProvider({ children }: { children: React.ReactNode }) {
       getByEmpresaId,
       getEMSIdByEmpresaId,
       currentEMSId,
+      getAnuncioIdByEmpresaId, // 🔹 exposto
+      currentAnuncioId, // 🔹 exposto
     }),
     [
       data,
@@ -135,6 +150,8 @@ export function MarcasProvider({ children }: { children: React.ReactNode }) {
       getByEmpresaId,
       getEMSIdByEmpresaId,
       currentEMSId,
+      getAnuncioIdByEmpresaId,
+      currentAnuncioId,
     ]
   );
 

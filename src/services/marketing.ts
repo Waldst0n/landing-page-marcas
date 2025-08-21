@@ -22,6 +22,23 @@ export type DetalhesPagina = {
   };
 };
 
+export type Telefone = { ddd: number; numero: number };
+export type OportunidadeProduto = { id: number; quantidade: number };
+
+export type OportunidadePayload = {
+  cpf_cnpj?: string;
+  anuncio_id?: number | null;
+  nome?: string;
+  email?: string;
+  tipo_pessoa?: "F" | "J";
+  sexo?: "M" | "F" | "O";
+  descricao?: string;
+  telefones?: Telefone[];
+  produtos?: OportunidadeProduto[];
+  origem?: string; // opcional: "site", "ps-catalog", etc.
+  extra?: Record<string, any>; // qualquer dado adicional
+};
+
 export type ProdutoInfo = {
   id: number;
   nome: string;
@@ -31,16 +48,23 @@ export type ProdutoInfo = {
 };
 
 export type Parcela = {
-  quantidade: number; // ex.: 12
-  valor: number; // valor da parcela
-  juros?: number | null; // se houver
+  quantidade: number;
+  valor: number;
+  juros?: number | null;
+};
+
+export type ParcelaAPI = {
+  nome: string;
+  descricao?: string | null;
+  quantidade: number;
+  valor: string;
 };
 
 export type ProdutoCatalogo = {
   id: number;
   nome: string;
-  preco: string; // se quiser number: parseFloat no consumo
-  capa: string; // caminho relativo; pode vir http também
+  preco: string;
+  capa: string;
   empresa_id: string | number;
 };
 
@@ -57,14 +81,14 @@ const PLACEHOLDER =
 
 export async function getDetalhesPagina(empresaModeloSiteId: string) {
   const { data } = await api.get<DetalhesPagina>(
-    `/api/marketing/modelos-sites/${empresaModeloSiteId}/detalhes-pagina-vendas`
+    `/marketing/modelos-sites/${empresaModeloSiteId}/detalhes-pagina-vendas`
   );
   return data;
 }
 
 export async function getPsCatalog(token: string) {
   const { data } = await api.get<ProdutoCatalogo[]>(
-    `/api/v1/marketing/ps-catalog`,
+    `/v1/marketing/ps-catalog`,
     {
       params: { token },
     }
@@ -82,15 +106,27 @@ export const toMediaURL = (caminho?: string | null) => {
 };
 
 export async function getProdutoInfo(produtoId: number, token: string) {
-  const { data } = await api.get(`/api/v1/marketing/p/${produtoId}/info`, {
+  const { data } = await api.get(`/v1/marketing/p/${produtoId}/info`, {
     params: { token: token?.trim() },
   });
   return data;
 }
 
 export async function getProdutoInstallments(produtoId: number, token: string) {
-  const { data } = await api.get(`/v1/marketing/p/${produtoId}/installments`, {
-    params: { token },
+  const { data } = await api.get<ParcelaAPI[]>(`/v1/common/installments`, {
+    params: { token, produto_id: produtoId },
   });
-  return data as Array<{ quantidade: number; valor: number; juros?: number }>;
+  return data;
+}
+
+export const digits = (v?: string) => (v ?? "").replace(/\D/g, "");
+
+export async function postOportunidade(
+  token: string,
+  payload: OportunidadePayload
+) {
+  const { data } = await api.post(`/v1/marketing/oportunidades`, payload, {
+    params: { token: token.trim() },
+  });
+  return data;
 }

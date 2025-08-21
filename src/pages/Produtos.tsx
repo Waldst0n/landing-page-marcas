@@ -1,17 +1,34 @@
+// src/pages/Produtos.tsx
 import { Link, useLocation, useParams } from "react-router-dom";
 import { useMemo, useState } from "react";
 import { useMarcas } from "../contexts/MarcasContext";
 import { useProdutosPorEmpresa } from "../hooks/useHooksPorEmpresa";
+import { getProdutoInstallments } from "../services/marketing";
+
 import CardProduct from "../components/CardProduct";
 import SaibaMaisModal from "../components/SaibaMaisModal";
+import ConsorcioModal from "../components/ConsorcioModal";
+import FinanciamentoModal from "../components/FinanciamentoModal";
 
 type LocationState = { loja?: { empresa_id: number } } | undefined;
+
+type PlanosDePagamentoProps = {
+  nome: string;
+  quantidade: number;
+  valor: string;
+};
 
 export default function Produtos() {
   const params = useParams<{ empresaId?: string }>();
   const location = useLocation();
   const state = location.state as LocationState;
-  const { empresaId: ctxEmpresaId } = useMarcas();
+  const { empresaId: ctxEmpresaId, getAnuncioIdByEmpresaId } = useMarcas();
+
+  function handleOpenFinanciamento(id: number) {
+    const prod = produtos.find((p) => p.id === id);
+    setFinProduto({ id, nome: prod?.nome ?? "" });
+    setFinOpen(true);
+  }
 
   const empresaId = useMemo(() => {
     if (params?.empresaId) return Number(params.empresaId);
@@ -26,6 +43,57 @@ export default function Produtos() {
 
   const [open, setOpen] = useState(false);
   const [produtoId, setProdutoId] = useState<number | null>(null);
+
+  const [consOpen, setConsOpen] = useState(false);
+  const [consPlanos, setConsPlanos] = useState<PlanosDePagamentoProps[]>([]);
+  const [consProduto, setConsProduto] = useState<{
+    id: number;
+    nome: string;
+  } | null>(null);
+
+  const [finOpen, setFinOpen] = useState(false);
+  const [finProduto, setFinProduto] = useState<{
+    id: number;
+    nome: string;
+  } | null>(null);
+
+  function handleOpenSaibaMais(id: number) {
+    setProdutoId(id);
+    setOpen(true);
+  }
+
+  function handleOpenFinanciamentoFromSaibaMais() {
+    if (!produtoId) return;
+    const prod = produtos.find((p) => p.id === produtoId);
+    setFinProduto({ id: produtoId, nome: prod?.nome ?? "" });
+
+    // opcional: fecha o Saiba Mais antes de abrir o financiamento
+    setOpen(false);
+
+    // abre o modal de financiamento
+    setFinOpen(true);
+  }
+
+  async function handleOpenConsorcio(forProductId?: number) {
+    const id = forProductId ?? produtoId;
+    if (!id || !token) return;
+
+    try {
+      const parcelas = await getProdutoInstallments(id, token);
+      const planos: PlanosDePagamentoProps[] = parcelas.map((p: any) => ({
+        nome: p.nome ?? "Parcelamento",
+        quantidade: Number(p.quantidade),
+        valor: String(p.valor),
+      }));
+
+      setConsPlanos(planos);
+      const prod = produtos.find((x) => x.id === id);
+      setConsProduto({ id, nome: prod?.nome ?? "" });
+      setConsOpen(true);
+    } catch (e) {
+      console.error("Falha ao buscar parcelas:", e);
+    }
+  }
 
   if (empresaId == null) {
     return (
@@ -84,15 +152,15 @@ export default function Produtos() {
               capa={p.capa}
               preco={p.preco}
               showPrice={false}
-              onSaibaMaisClick={() => {
-                setProdutoId(p.id);
-                setOpen(true);
-              }}
+              onSaibaMaisClick={() => handleOpenSaibaMais(p.id)}
+              onConsorcioClick={() => handleOpenConsorcio(p.id)}
+              onFinanciamentoClick={() => handleOpenFinanciamento(p.id)}
             />
           ))}
         </ul>
       )}
 
+      {/* Modal "Saiba mais" */}
       <SaibaMaisModal
         open={open}
         onClose={() => setOpen(false)}
@@ -106,9 +174,27 @@ export default function Produtos() {
             ["is_financiamento", "true"],
           ])
         }
-        whatsapp={"5581999999999"}
-        onOpenConsorcioModal={() => console.log("consórcio")}
-        onOpenFinanciamentoModal={() => console.log("financiamento")}
+        whatsapp="5581999999999"
+        onOpenConsorcioModal={() => handleOpenConsorcio()}
+        onOpenFinanciamentoModal={handleOpenFinanciamentoFromSaibaMais}
+      />
+
+      {/* Modal "Consórcio" */}
+      <ConsorcioModal
+        open={consOpen}
+        onClose={() => setConsOpen(false)}
+        planosDePagamento={consPlanos}
+        produto={consProduto?.nome ?? ""}
+        produtoId={consProduto?.id}
+        numberPhone="5581999999999"
+      />
+
+      <FinanciamentoModal
+        open={finOpen}
+        onClose={() => setFinOpen(false)}
+        produto={finProduto?.nome ?? ""}
+        produtoId={finProduto?.id ?? 0}
+        tokenAccess={token ?? undefined}
       />
     </section>
   );
