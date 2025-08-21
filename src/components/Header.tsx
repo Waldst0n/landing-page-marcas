@@ -30,8 +30,6 @@ export default function Header() {
   const nomeMarca = selected?.nome_marca ?? "";
   const logoMarca = `${CDN_BASE}${selected?.logo_marca}`;
 
-  console.log(selected);
-
   if (!selected) {
     return (
       <header className="w-full bg-white pt-6 pb-4">

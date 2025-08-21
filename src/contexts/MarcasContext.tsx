@@ -64,7 +64,7 @@ export function MarcasProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await api.get<LojaOuMarca[]>(ENDPOINT_MARCAS, {
         headers: {
-          empresa_id: 496, // empresaId,
+          empresa_id: 342, // empresaId,
         },
       });
       setData(res.data || []);
@@ -116,7 +116,6 @@ export function MarcasProvider({ children }: { children: React.ReactNode }) {
     [getByEmpresaId]
   );
 
-  // 🔹 anuncio_id da empresa atualmente selecionada
   const currentAnuncioId = useMemo(() => {
     if (empresaId == null) return null;
     return getAnuncioIdByEmpresaId(empresaId);
@@ -138,8 +137,8 @@ export function MarcasProvider({ children }: { children: React.ReactNode }) {
       getByEmpresaId,
       getEMSIdByEmpresaId,
       currentEMSId,
-      getAnuncioIdByEmpresaId, // 🔹 exposto
-      currentAnuncioId, // 🔹 exposto
+      getAnuncioIdByEmpresaId,
+      currentAnuncioId,
     }),
     [
       data,

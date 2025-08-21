@@ -109,7 +109,6 @@ export default function FinanciamentoModal({
       setErro("Token de acesso não encontrado.");
       return;
     }
-    console.log("Sou a meta", meta);
 
     try {
       setSubmitting(true);
@@ -133,10 +132,8 @@ export default function FinanciamentoModal({
         origem: "financiamento",
       };
 
-      // ✅ sempre envia pelo endpoint de oportunidades
       await postOportunidade(token, payload);
 
-      // abre WhatsApp com mensagem formatada
       const numeroWhats = `55${digits(form.ddd)}${digits(form.telefone)}`;
       const mensagem = `Olá, meu nome é ${
         form.nomeCompleto
@@ -148,10 +145,6 @@ Telefone: +55 (${form.ddd}) ${form.telefone}
 Data de Nascimento: ${form.dataNascimento}
 Possuo CNH: ${form.possuiCnh === "sim" ? "Sim" : "Não"}`;
 
-      window.open(
-        `https://wa.me/${numeroWhats}?text=${encodeURIComponent(mensagem)}`,
-        "_blank"
-      );
       onClose();
     } catch (err: any) {
       console.error(err);

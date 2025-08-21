@@ -10,7 +10,7 @@ export default function Home() {
     if (!lojas.length) reload();
   }, [lojas.length, reload]);
 
-  console.log(lojas);
+  console.table(lojas);
 
   const handleSelectLoja = useCallback(
     (empresaId: number) => {
