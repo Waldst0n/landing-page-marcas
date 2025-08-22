@@ -135,7 +135,7 @@ export default function Produtos() {
 
   return (
     <section className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 mt-6">
-      <div className="flex items-center justify-center gap-4">
+      <div className="flex items-center justify-center ">
         <h2 className="text-xl font-semibold"></h2>
         <Link
           to="/"
