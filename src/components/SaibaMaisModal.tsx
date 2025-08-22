@@ -10,6 +10,8 @@ type Props = {
   params?: Map<string, string>;
   onOpenConsorcioModal?: () => void;
   onOpenFinanciamentoModal?: () => void;
+  onOpenWhatsapp?: () => void;
+
   whatsapp?: string;
   autoplayDelayMs?: number;
 };
@@ -75,6 +77,7 @@ export default function SaibaMaisModal({
   params,
   onOpenConsorcioModal,
   onOpenFinanciamentoModal,
+  onOpenWhatsapp,
   whatsapp,
   autoplayDelayMs = 4000,
 }: Props) {
@@ -260,14 +263,13 @@ export default function SaibaMaisModal({
                       Financiamento
                     </button>
                   )}
-                  <a
-                    href={whatsapp ? `https://wa.me/${whatsapp}` : "#"}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex-1 h-12 rounded-lg bg-[#25D366] text-white font-bold grid place-items-center hover:brightness-95 transition"
+                  <button
+                    onClick={onOpenWhatsapp}
+                    disabled={!onOpenWhatsapp || !token || !produtoId}
+                    className="flex-1 h-12 rounded-lg bg-[#25D366] text-white font-bold grid place-items-center hover:brightness-95 transition disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     WhatsApp
-                  </a>
+                  </button>
                 </div>
 
                 {canPrice && (

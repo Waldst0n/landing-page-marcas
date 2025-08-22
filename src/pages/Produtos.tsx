@@ -9,6 +9,7 @@ import CardProduct from "../components/CardProduct";
 import SaibaMaisModal from "../components/SaibaMaisModal";
 import ConsorcioModal from "../components/ConsorcioModal";
 import FinanciamentoModal from "../components/FinanciamentoModal";
+import WhatsappModal from "../components/WhatsappModal";
 
 type LocationState = { loja?: { empresa_id: number } } | undefined;
 
@@ -50,6 +51,7 @@ export default function Produtos() {
     id: number;
     nome: string;
   } | null>(null);
+  const [modalWhatsappVisible, setWhatsappModalVisible] = useState(false);
 
   const [finOpen, setFinOpen] = useState(false);
   const [finProduto, setFinProduto] = useState<{
@@ -127,6 +129,9 @@ export default function Produtos() {
       </div>
     );
   }
+  const anuncioId = empresaId ? getAnuncioIdByEmpresaId(empresaId) : undefined;
+
+  // Get anuncioId for the current empresaId
 
   return (
     <section className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 mt-6">
@@ -174,9 +179,9 @@ export default function Produtos() {
             ["is_financiamento", "true"],
           ])
         }
-        whatsapp="5581999999999"
         onOpenConsorcioModal={() => handleOpenConsorcio()}
         onOpenFinanciamentoModal={handleOpenFinanciamentoFromSaibaMais}
+        onOpenWhatsapp={() => setWhatsappModalVisible(true)}
       />
 
       {/* Modal "Consórcio" */}
@@ -187,6 +192,7 @@ export default function Produtos() {
         produto={consProduto?.nome ?? ""}
         produtoId={consProduto?.id}
         numberPhone="5581999999999"
+        onOpenWhatsapp={() => setWhatsappModalVisible(true)}
       />
 
       <FinanciamentoModal
@@ -195,6 +201,16 @@ export default function Produtos() {
         produto={finProduto?.nome ?? ""}
         produtoId={finProduto?.id ?? 0}
         tokenAccess={token ?? undefined}
+      />
+
+      <WhatsappModal
+        open={modalWhatsappVisible}
+        onClose={() => setWhatsappModalVisible(false)}
+        tipoInteresse="Página de Vendas"
+        meta={{
+          access: token ?? undefined,
+          anuncio_id: anuncioId,
+        }}
       />
     </section>
   );

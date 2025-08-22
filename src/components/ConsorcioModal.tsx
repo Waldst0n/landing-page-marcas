@@ -17,8 +17,9 @@ type Props = {
   planosDePagamento: PlanosDePagamentoProps[]; // vindo do back (ou calculado)
   produto: string;
   produtoId?: string | number;
-  numberPhone?: string; // DDI+DDD+número, ex: "5581999999999"
+  numberPhone?: string;
   meta?: Meta | null;
+  onOpenWhatsapp?: () => void;
 };
 
 const money = (v: string | number) => {
@@ -34,6 +35,7 @@ export default function ConsorcioModal({
   planosDePagamento,
   produto,
   produtoId,
+  onOpenWhatsapp,
   numberPhone,
 }: Props) {
   // Bloqueia scroll do body quando o modal está aberto
@@ -72,17 +74,17 @@ export default function ConsorcioModal({
   const planNames = Object.keys(grouped);
 
   // WhatsApp
-  const handleWhatsApp = () => {
-    if (!numberPhone)
-      return window.alert("Número de WhatsApp não configurado.");
-    const msg = encodeURIComponent(
-      `Olá! Tenho interesse no consórcio do produto *${produto}*${
-        produtoId ? ` (ID: ${produtoId})` : ""
-      }.`
-    );
-    const url = `https://wa.me/${numberPhone}?text=${msg}`;
-    window.open(url, "_blank");
-  };
+  // const handleWhatsApp = () => {
+  //   if (!numberPhone)
+  //     return window.alert("Número de WhatsApp não configurado.");
+  //   const msg = encodeURIComponent(
+  //     `Olá! Tenho interesse no consórcio do produto *${produto}*${
+  //       produtoId ? ` (ID: ${produtoId})` : ""
+  //     }.`
+  //   );
+  //   const url = `https://wa.me/${numberPhone}?text=${msg}`;
+  //   window.open(url, "_blank");
+  // };
 
   if (!open) return null;
 
@@ -148,7 +150,7 @@ export default function ConsorcioModal({
           <div className="px-6 py-4 border-t flex flex-col sm:flex-row gap-3 sm:justify-between">
             <button
               className="w-full sm:w-auto h-11 px-4 rounded-lg bg-[#25D366] text-white font-semibold hover:brightness-95 transition"
-              onClick={handleWhatsApp}
+              onClick={onOpenWhatsapp}
             >
               Falar com vendedor agora!
             </button>
