@@ -16,15 +16,13 @@ const RAW_PARAM = (process.argv[2] || process.env.TEST_PARAM || "").trim();
 // Normaliza BASE_URL (sem barra final)
 const base = BASE_URL.replace(/\/$/, "");
 
-// Monta o sufixo de query SEM re-encode do TEST_PARAM
+// Monta o sufixo SEM re-encode do parâmetro
 let suffix = "/";
 if (RAW_PARAM) {
-  if (RAW_PARAM.startsWith("/?")) {
-    suffix = RAW_PARAM;
-  } else if (RAW_PARAM.startsWith("?")) {
-    suffix = `/${RAW_PARAM}`;
+  if (RAW_PARAM.startsWith("/?") || RAW_PARAM.startsWith("?")) {
+    suffix = RAW_PARAM.startsWith("?") ? `/${RAW_PARAM}` : RAW_PARAM; // ex: "?EMS=..." já passa direto
   } else {
-    suffix = `/?UMS=${encodeURIComponent(RAW_PARAM)}`;
+    suffix = `/?EMS=${encodeURIComponent(RAW_PARAM)}`; // ex: "7d6a4b..." -> "/?EMS=7d6a4b..."
   }
 }
 
@@ -37,16 +35,16 @@ function guessChromePath() {
   const candidates =
     process.platform === "win32"
       ? [
-          "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-          "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
-          path.join(
-            process.env.LOCALAPPDATA || "",
-            "Google\\Chrome\\Application\\chrome.exe"
-          ),
-        ]
+        "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+        "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+        path.join(
+          process.env.LOCALAPPDATA || "",
+          "Google\\Chrome\\Application\\chrome.exe"
+        ),
+      ]
       : process.platform === "darwin"
-      ? ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"]
-      : [
+        ? ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"]
+        : [
           "/usr/bin/google-chrome",
           "/usr/bin/google-chrome-stable",
           "/snap/bin/chromium",
@@ -54,13 +52,14 @@ function guessChromePath() {
   for (const p of candidates) {
     try {
       if (p && fs.existsSync(p)) return p;
-    } catch {}
+    } catch { }
   }
   return undefined;
 }
 
 const executablePath = guessChromePath();
 
+// Cria browser e página
 const browser = await launch({
   headless: "new",
   executablePath,
@@ -85,16 +84,14 @@ page.on("requestfailed", (req) =>
 // Vai para a página
 await page.goto(finalUrl, { waitUntil: "domcontentloaded", timeout: 120000 });
 
-// Espera pela chamada da API
+// Espera pela chamada da API /v1/marcas?EMS=...
 try {
   await page.waitForResponse(
-    (res) =>
-      /http:\/\/localhost:3333\/api\/v1\/marcas/.test(res.url()) &&
-      res.status() === 200,
+    (res) => /\/api\/v1\/marcas\?EMS=/.test(res.url()) && res.status() === 200,
     { timeout: 60000 }
   );
   console.log("✅ API /marcas respondida com 200");
-} catch (e) {
+} catch {
   console.warn("⚠️ API de marcas não confirmou 200 no tempo esperado.");
 }
 

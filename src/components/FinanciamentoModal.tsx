@@ -1,5 +1,5 @@
 // src/components/FinanciamentoModal.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { postOportunidade, digits } from "../services/marketing";
 import { useMarcas } from "../contexts/MarcasContext";
 
@@ -13,6 +13,8 @@ type Props = {
   tokenAccess?: string; // fallback se não vier via meta
 };
 
+const AUTO_CLOSE_MS = 2200;
+
 export default function FinanciamentoModal({
   open,
   onClose,
@@ -23,6 +25,11 @@ export default function FinanciamentoModal({
 }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [sucesso, setSucesso] = useState<string | null>(null);
+
+  // refs para scroll
+  const contentRef = useRef<HTMLDivElement>(null); // container com overflow
+  const messageRef = useRef<HTMLDivElement>(null); // bloco dos alertas
 
   const { currentAnuncioId, getAnuncioIdByEmpresaId, empresaId } = useMarcas();
 
@@ -59,7 +66,14 @@ export default function FinanciamentoModal({
     return () => window.removeEventListener("keydown", handler);
   }, [open, onClose]);
 
-  // formatadores
+  // ao abrir, garante scroll no topo do conteúdo
+  useEffect(() => {
+    if (open && contentRef.current) {
+      contentRef.current.scrollTop = 0;
+    }
+  }, [open]);
+
+  // helpers de formatação
   const formatCurrency = (v: string) => {
     const n = Number(v.replace(/\D/g, "")) / 100;
     if (!isFinite(n)) return "";
@@ -100,6 +114,17 @@ export default function FinanciamentoModal({
     setForm((s) => ({ ...s, [name]: value }));
   };
 
+  // rola o container até a mensagem
+  const scrollToMessage = () => {
+    requestAnimationFrame(() => {
+      if (contentRef.current) {
+        contentRef.current.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      // fallback/ajuste fino: garante foco visual no bloco de alerta
+      messageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro(null);
@@ -107,13 +132,13 @@ export default function FinanciamentoModal({
     const token = (meta?.access ?? tokenAccess ?? "").trim();
     if (!token) {
       setErro("Token de acesso não encontrado.");
+      scrollToMessage();
       return;
     }
 
     try {
       setSubmitting(true);
 
-      // monta payload do lead
       const payload = {
         cpf_cnpj: form.cpf,
         estagio_id: 1,
@@ -134,27 +159,40 @@ export default function FinanciamentoModal({
 
       await postOportunidade(token, payload);
 
-      const numeroWhats = `55${digits(form.ddd)}${digits(form.telefone)}`;
-      const mensagem = `Olá, meu nome é ${
-        form.nomeCompleto
-      } e estou interessado no financiamento da *${produto}*.
+      setSucesso(
+        "Pronto! Recebemos seus dados. Um vendedor entrará em contato em breve."
+      );
+      scrollToMessage();
 
-Entrada: ${form.valorEntrada}
-CPF: ${form.cpf}
-Telefone: +55 (${form.ddd}) ${form.telefone}
-Data de Nascimento: ${form.dataNascimento}
-Possuo CNH: ${form.possuiCnh === "sim" ? "Sim" : "Não"}`;
+      // limpa
+      setForm({
+        valorEntrada: "",
+        dataNascimento: "",
+        cpf: "",
+        nomeCompleto: "",
+        possuiCnh: "",
+        ddd: "",
+        telefone: "",
+        autorizoTratamentoDados: false,
+      });
 
-      onClose();
+      // fecha
+      setTimeout(() => {
+        setSucesso(null);
+        onClose();
+      }, AUTO_CLOSE_MS);
     } catch (err: any) {
       console.error(err);
       setErro("Erro ao enviar seus dados. Tente novamente.");
+      scrollToMessage();
     } finally {
       setSubmitting(false);
     }
   };
 
   if (!open) return null;
+
+  const disabled = submitting || !!sucesso;
 
   return (
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
@@ -172,12 +210,23 @@ Possuo CNH: ${form.possuiCnh === "sim" ? "Sim" : "Não"}`;
             </button>
           </div>
 
-          <div className="px-6 py-5 overflow-y-auto">
-            {erro && (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 text-red-700 px-3 py-2 text-sm">
-                {erro}
-              </div>
-            )}
+          <div
+            ref={contentRef}
+            className="px-6 py-5 overflow-y-auto"
+          >
+            {/* bloco das mensagens */}
+            <div ref={messageRef}>
+              {erro && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 text-red-700 px-3 py-2 text-sm">
+                  {erro}
+                </div>
+              )}
+              {sucesso && (
+                <div className="mb-4 rounded-lg border border-green-200 bg-green-50 text-green-700 px-3 py-2 text-sm">
+                  {sucesso}
+                </div>
+              )}
+            </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -191,7 +240,8 @@ Possuo CNH: ${form.possuiCnh === "sim" ? "Sim" : "Não"}`;
                   onChange={onChange}
                   placeholder="R$ 0,00"
                   required
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  disabled={disabled}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-gray-100"
                 />
               </div>
 
@@ -205,7 +255,8 @@ Possuo CNH: ${form.possuiCnh === "sim" ? "Sim" : "Não"}`;
                   value={form.dataNascimento}
                   onChange={onChange}
                   required
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  disabled={disabled}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-gray-100"
                 />
               </div>
 
@@ -221,7 +272,8 @@ Possuo CNH: ${form.possuiCnh === "sim" ? "Sim" : "Não"}`;
                   placeholder="000.000.000-00"
                   maxLength={14}
                   required
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  disabled={disabled}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-gray-100"
                 />
               </div>
 
@@ -236,7 +288,8 @@ Possuo CNH: ${form.possuiCnh === "sim" ? "Sim" : "Não"}`;
                   onChange={onChange}
                   placeholder="Digite seu nome completo"
                   required
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  disabled={disabled}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-gray-100"
                 />
               </div>
 
@@ -249,7 +302,8 @@ Possuo CNH: ${form.possuiCnh === "sim" ? "Sim" : "Não"}`;
                   value={form.possuiCnh}
                   onChange={onChange}
                   required
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                  disabled={disabled}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-gray-100"
                 >
                   <option value="">Selecione</option>
                   <option value="sim">Sim</option>
@@ -270,7 +324,8 @@ Possuo CNH: ${form.possuiCnh === "sim" ? "Sim" : "Não"}`;
                     placeholder="(00)"
                     maxLength={4}
                     required
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                    disabled={disabled}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-gray-100"
                   />
                 </div>
                 <div>
@@ -285,7 +340,8 @@ Possuo CNH: ${form.possuiCnh === "sim" ? "Sim" : "Não"}`;
                     placeholder="00000-0000"
                     maxLength={10}
                     required
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                    disabled={disabled}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-gray-100"
                   />
                 </div>
               </div>
@@ -297,7 +353,8 @@ Possuo CNH: ${form.possuiCnh === "sim" ? "Sim" : "Não"}`;
                   checked={form.autorizoTratamentoDados}
                   onChange={onChange}
                   required
-                  className="mt-1 h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                  disabled={disabled}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500 disabled:opacity-60"
                 />
                 <span className="text-gray-700">
                   Declaro que autorizo o tratamento dos meus dados pessoais para
@@ -310,15 +367,16 @@ Possuo CNH: ${form.possuiCnh === "sim" ? "Sim" : "Não"}`;
                   type="button"
                   onClick={onClose}
                   className="h-11 px-4 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  disabled={disabled}
                 >
                   Fechar
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={disabled}
                   className="h-11 px-5 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {submitting ? "Enviando..." : "Enviar para o Vendedor"}
+                  {submitting ? "Enviando..." : sucesso ? "Enviado" : "Enviar para o Vendedor"}
                 </button>
               </div>
             </form>

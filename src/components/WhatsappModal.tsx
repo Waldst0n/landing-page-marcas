@@ -4,7 +4,7 @@ import { postOportunidade, digits as onlyDigits } from "../services/marketing";
 import { useMarcas } from "../contexts/MarcasContext";
 
 type CanalContato = {
-  identificador?: string;
+  identificador?: string; // número como string (pode vir com símbolos)
   canal?: { nome?: string };
 };
 
@@ -32,6 +32,8 @@ type Props = {
   whatsappContato?: CanalContato;
   tokenAccess?: string;
 };
+
+const AUTO_CLOSE_MS = 2200;
 
 // máscara de telefone (celular e fixo)
 const formatTelefone = (v: string) => {
@@ -69,6 +71,7 @@ export default function WhatsappModal({
   const [telefone, setTelefone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [sucesso, setSucesso] = useState<string | null>(null);
 
   // trava scroll quando abre
   useEffect(() => {
@@ -137,7 +140,7 @@ export default function WhatsappModal({
       telefones: [{ ddd, numero }],
       tipo_pessoa: "F", // padrão
       sexo: "O",        // padrão
-      estagio_id: 1,    // mesmo do FinanciamentoModal
+      estagio_id: 1,
       origem: "whatsapp-modal",
     };
 
@@ -148,38 +151,36 @@ export default function WhatsappModal({
 
     try {
       setSubmitting(true);
-
-      // debug opcional para conferir o payload que está indo
-      console.info("[WhatsappModal] payload→", payload);
-
       await postOportunidade(token, payload); // envia ?token= em params
 
-      // mensagem pra abrir no WhatsApp (deixa comentado se não quiser abrir automático)
-      const telefoneFmt = `+55 (${telDigits.slice(0, 2)}) ${telDigits.length > 10
-        ? `${telDigits.slice(2, 7)}-${telDigits.slice(7)}`
-        : `${telDigits.slice(2, 6)}-${telDigits.slice(6)}`
-        }`;
-
-      const mensagem =
-        mensagemPersonalizada?.({
-          nome,
-          telefone: telefoneFmt,
-          produto,
-          tipoInteresse,
-        }) ??
-        `Olá! Meu nome é ${nome} e acabei de preencher o formulário com interesse em ${tipoInteresse}${produto ? ` (produto: ${produto})` : ""
-        }. Podemos conversar?`;
-
-
-
-      // Descomente se quiser abrir o WhatsApp:
-      // const url = `https://wa.me/${vendedorWhatsDigits}?text=${encodeURIComponent(mensagem)}`;
-      // window.open(url, "_blank");
-
-      // sucesso
+      // mensagem de sucesso
+      setSucesso("Pronto! Recebemos seus dados. Um vendedor entrará em contato em breve.");
       setNome("");
       setTelefone("");
-      onClose();
+
+      // (opcional) abrir WhatsApp — manter comentado se não quiser
+      // const telefoneFmt = `+55${telDigits}`;
+      // const mensagem = mensagemPersonalizada?.({
+      //   nome,
+      //   telefone: `+55 (${telDigits.slice(0, 2)}) ${
+      //     telDigits.length > 10
+      //       ? `${telDigits.slice(2, 7)}-${telDigits.slice(7)}`
+      //       : `${telDigits.slice(2, 6)}-${telDigits.slice(6)}`
+      //   }`,
+      //   produto,
+      //   tipoInteresse,
+      // }) ?? `Olá! Meu nome é ${nome} e tenho interesse em ${tipoInteresse}${
+      //   produto ? ` (produto: ${produto})` : ""
+      // }. Podemos conversar?`;
+      // if (vendedorWhatsDigits) {
+      //   window.open(`https://wa.me/${vendedorWhatsDigits}?text=${encodeURIComponent(mensagem)}`,"_blank");
+      // }
+
+      // fecha automaticamente depois de um tempo
+      setTimeout(() => {
+        setSucesso(null);
+        onClose();
+      }, AUTO_CLOSE_MS);
     } catch (err: any) {
       console.group("Erro em handleSubmit → postOportunidade");
       console.error("Objeto completo:", err);
@@ -198,6 +199,8 @@ export default function WhatsappModal({
   };
 
   if (!open) return null;
+
+  const disabled = submitting || !!sucesso;
 
   return (
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
@@ -225,6 +228,11 @@ export default function WhatsappModal({
                 {erro}
               </div>
             )}
+            {sucesso && (
+              <div className="mb-4 rounded-lg border border-green-200 bg-green-50 text-green-700 px-3 py-2 text-sm">
+                {sucesso}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -241,7 +249,8 @@ export default function WhatsappModal({
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
                   required
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  disabled={disabled}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-gray-100"
                 />
               </div>
 
@@ -259,7 +268,8 @@ export default function WhatsappModal({
                   value={telefone}
                   onChange={(e) => setTelefone(formatTelefone(e.target.value))}
                   required
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  disabled={disabled}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-gray-100"
                 />
               </div>
 
@@ -268,15 +278,16 @@ export default function WhatsappModal({
                   type="button"
                   onClick={onClose}
                   className="h-11 px-4 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  disabled={disabled}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={disabled}
                   className="h-11 px-5 rounded-lg bg-[#25D366] text-white font-semibold hover:brightness-95 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {submitting ? "Enviando..." : "Enviar"}
+                  {submitting ? "Enviando..." : sucesso ? "Enviado" : "Enviar"}
                 </button>
               </div>
             </form>
