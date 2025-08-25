@@ -1,9 +1,10 @@
 // src/components/WhatsappModal.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { postOportunidade, digits as onlyDigits } from "../services/marketing";
+import { useMarcas } from "../contexts/MarcasContext";
 
 type CanalContato = {
-  identificador?: string; // número como string (pode vir com símbolos)
+  identificador?: string;
   canal?: { nome?: string };
 };
 
@@ -29,7 +30,6 @@ type Props = {
   }) => string;
 
   whatsappContato?: CanalContato;
-
   tokenAccess?: string;
 };
 
@@ -70,6 +70,7 @@ export default function WhatsappModal({
   const [submitting, setSubmitting] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
+  // trava scroll quando abre
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -77,6 +78,7 @@ export default function WhatsappModal({
     return () => void (document.body.style.overflow = prev);
   }, [open]);
 
+  // fecha com ESC
   useEffect(() => {
     if (!open) return;
     const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -84,20 +86,28 @@ export default function WhatsappModal({
     return () => window.removeEventListener("keydown", h);
   }, [open, onClose]);
 
+  // número do vendedor (prop > meta.canais_contato com "whatsapp")
   const vendedorWhatsDigits = useMemo(() => {
     const fromProp = whatsappContato?.identificador?.replace(/\D/g, "");
     if (fromProp) return fromProp;
 
-    // fallback: meta.canais_contato -> canal que contenha "whatsapp"
     const found = meta?.canais_contato?.find((c) =>
       (c.canal?.nome ?? "").toLowerCase().includes("whatsapp")
     );
     const fromMeta = found?.identificador?.replace(/\D/g, "");
     if (fromMeta) return fromMeta;
 
-    return ""; // vazio: sem número do vendedor
+    return ""; // sem número do vendedor
   }, [whatsappContato, meta?.canais_contato]);
 
+  // anuncio_id da empresa selecionada (pega da FILIAL se for o caso)
+  const { currentAnuncioId, getAnuncioIdByEmpresaId, empresaId } = useMarcas();
+  const anuncioId =
+    meta?.anuncio_id ??
+    currentAnuncioId ??
+    (empresaId ? getAnuncioIdByEmpresaId(empresaId) : null);
+
+  // token (meta tem prioridade; fallback prop)
   const token = (meta?.access ?? tokenAccess ?? "").trim();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -118,61 +128,70 @@ export default function WhatsappModal({
     const ddd = Number(onlyDigits(telDigits.slice(0, 2)));
     const numero = Number(onlyDigits(telDigits.slice(2)));
 
-    const descricaoBase = `Interesse em ${tipoInteresse.toUpperCase()}`;
-    const descricao = produto
-      ? `${descricaoBase} - Produto: ${produto}`
-      : descricaoBase;
+    const descricaoBase = `Interesse em ${String(tipoInteresse || "").toUpperCase()}`;
+    const descricao = produto ? `${descricaoBase} - Produto: ${produto}` : descricaoBase;
 
     const payload: any = {
       nome,
       descricao,
-      tipo_pessoa: "F",
-      sexo: "O",
       telefones: [{ ddd, numero }],
+      tipo_pessoa: "F", // padrão
+      sexo: "O",        // padrão
+      estagio_id: 1,    // mesmo do FinanciamentoModal
       origem: "whatsapp-modal",
     };
 
-    if (meta?.anuncio_id != null) payload.anuncio_id = meta.anuncio_id;
+    if (anuncioId != null) payload.anuncio_id = Number(anuncioId);
     if (produtoId != null && !isNaN(Number(produtoId))) {
       payload.produtos = [{ id: Number(produtoId), quantidade: 1 }];
     }
 
     try {
       setSubmitting(true);
-      await postOportunidade(token, payload);
+
+      // debug opcional para conferir o payload que está indo
+      console.info("[WhatsappModal] payload→", payload);
+
+      await postOportunidade(token, payload); // envia ?token= em params
+
+      // mensagem pra abrir no WhatsApp (deixa comentado se não quiser abrir automático)
+      const telefoneFmt = `+55 (${telDigits.slice(0, 2)}) ${telDigits.length > 10
+        ? `${telDigits.slice(2, 7)}-${telDigits.slice(7)}`
+        : `${telDigits.slice(2, 6)}-${telDigits.slice(6)}`
+        }`;
 
       const mensagem =
         mensagemPersonalizada?.({
           nome,
-          telefone: `+55 (${telDigits.slice(0, 2)}) ${
-            telDigits.length > 10
-              ? `${telDigits.slice(2, 7)}-${telDigits.slice(7)}`
-              : `${telDigits.slice(2, 6)}-${telDigits.slice(6)}`
-          }`,
+          telefone: telefoneFmt,
           produto,
           tipoInteresse,
         }) ??
-        `Olá! Meu nome é ${nome} e acabei de preencher o formulário com interesse em ${tipoInteresse}${
-          produto ? ` (produto: ${produto})` : ""
+        `Olá! Meu nome é ${nome} e acabei de preencher o formulário com interesse em ${tipoInteresse}${produto ? ` (produto: ${produto})` : ""
         }. Podemos conversar?`;
 
-      if (!vendedorWhatsDigits) {
-        setErro("Número de WhatsApp do vendedor não encontrado.");
-        return;
-      }
 
-      // const url = `https://wa.me/${vendedorWhatsDigits}?text=${encodeURIComponent(
-      //   mensagem
-      // )}`;
+
+      // Descomente se quiser abrir o WhatsApp:
+      // const url = `https://wa.me/${vendedorWhatsDigits}?text=${encodeURIComponent(mensagem)}`;
       // window.open(url, "_blank");
 
-      // limpa e fecha
+      // sucesso
       setNome("");
       setTelefone("");
       onClose();
     } catch (err: any) {
-      console.error(err);
-      setErro("Erro ao enviar seus dados. Tente novamente.");
+      console.group("Erro em handleSubmit → postOportunidade");
+      console.error("Objeto completo:", err);
+      console.error("Status:", err?.response?.status);
+      console.error("Código:", err?.code);
+      console.error("Body back:", err?.response?.data);
+      console.groupEnd();
+
+      setErro(
+        err?.response?.data?.message ||
+        "Erro ao enviar seus dados. Tente novamente."
+      );
     } finally {
       setSubmitting(false);
     }

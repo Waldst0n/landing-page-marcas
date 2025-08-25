@@ -1,5 +1,5 @@
-import React from "react";
 import { toMediaURL } from "../services/marketing";
+import placeholder from '../assets/noimage.jpg'
 
 type Props = {
   id: number;
@@ -33,7 +33,6 @@ export default function CardProduct({
   onSaibaMaisClick,
   onConsorcioClick,
   onFinanciamentoClick,
-  onFaleComigoClick,
   className = "",
 }: Props) {
   const src = capa ? toMediaURL(capa) : "";
@@ -49,24 +48,19 @@ export default function CardProduct({
 
       {/* vitrine padronizada */}
       <div className="relative w-full aspect-[4/3] mb-4">
+
+
         <img
-          src={src}
+          src={src || placeholder}
           alt={nome}
           loading="lazy"
           className="absolute inset-0 w-full h-full object-contain"
           onError={(e) => {
-            e.currentTarget.onerror = null;
-            e.currentTarget.src =
-              "data:image/svg+xml;utf8," +
-              encodeURIComponent(
-                `<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400'>
-                   <rect width='100%' height='100%' fill='#f3f4f6'/>
-                   <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle'
-                         font-family='sans-serif' font-size='16' fill='#9ca3af'>sem imagem</text>
-                 </svg>`
-              );
+            e.currentTarget.onerror = null; // evita loop infinito
+            e.currentTarget.src = placeholder;
           }}
         />
+
       </div>
 
       {/* preço (opcional) mantendo altura */}

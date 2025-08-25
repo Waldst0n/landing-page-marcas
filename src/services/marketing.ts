@@ -121,12 +121,21 @@ export async function getProdutoInstallments(produtoId: number, token: string) {
 
 export const digits = (v?: string) => (v ?? "").replace(/\D/g, "");
 
-export async function postOportunidade(
-  token: string,
-  payload: OportunidadePayload
-) {
-  const { data } = await api.post(`/v1/marketing/oportunidades`, payload, {
-    params: { token: token.trim() },
-  });
-  return data;
+export async function postOportunidade(token: string, payload: OportunidadePayload) {
+  const t = (token ?? "").trim();
+  if (!t) throw new Error("TOKEN ausente para postOportunidade().");
+
+  try {
+    const { data } = await api.post(`/v1/marketing/oportunidades`, payload, {
+      params: { token: t },
+      headers: { "Content-Type": "application/json" },
+    });
+    return data;
+  } catch (err: any) {
+    const status = err?.response?.status;
+    const body = err?.response?.data;
+    console.error("[postOportunidade] 400/erro", { status, body, payloadSent: payload, tokenUsed: t });
+    throw err;
+  }
 }
+

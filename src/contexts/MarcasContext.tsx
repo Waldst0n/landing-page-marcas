@@ -1,11 +1,6 @@
 // src/contexts/MarcasContext.tsx
 import {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useEffect,
-  useMemo,
+  createContext, useContext, useState, useCallback, useEffect, useMemo,
 } from "react";
 import { api } from "../services/api";
 
@@ -22,7 +17,7 @@ type LojaOuMarca = {
   empresa_modelo_site_id?: string;
   modelo_site_id?: number;
   status?: boolean;
-  anuncio_id?: number | null;
+  anuncio_id?: number | null; // <- vem do ems da FILIAL
 };
 
 type MarcasContextType = {
@@ -36,10 +31,11 @@ type MarcasContextType = {
 
   getByEmpresaId: (id: number) => LojaOuMarca | undefined;
 
-  getEMSIdByEmpresaId: (id: number) => string | null;
+  // EMS atual (da URL) e helpers
   currentEMSId: string | null;
+  getEMSIdByEmpresaId: (id: number) => string | null;
 
-  // 🔹 novos helpers para anúncio
+  // anuncio_id da filial
   getAnuncioIdByEmpresaId: (id: number) => number | null;
   currentAnuncioId: number | null;
 };
@@ -47,14 +43,30 @@ type MarcasContextType = {
 const MarcasContext = createContext({} as MarcasContextType);
 export const useMarcas = () => useContext(MarcasContext);
 
+function getEMSFromURL(): string | null {
+  const sp = new URLSearchParams(window.location.search);
+  const ems = sp.get("EMS") || sp.get("ems");
+  return ems?.trim() || null;
+}
+
 export function MarcasProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<LojaOuMarca[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const [empresaId, setEmpresaId] = useState<number | null>(() => {
     const saved = localStorage.getItem("empresa_id");
     return saved ? Number(saved) : null;
   });
+
+  const [currentEMSId, setCurrentEMSId] = useState<string | null>(() => getEMSFromURL());
+
+  useEffect(() => {
+    // mantém EMS atualizado caso o usuário navegue e mude querystring
+    const handler = () => setCurrentEMSId(getEMSFromURL());
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, []);
 
   const ENDPOINT_MARCAS = "/v1/marcas";
 
@@ -62,18 +74,18 @@ export function MarcasProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get<LojaOuMarca[]>(ENDPOINT_MARCAS, {
-        headers: {
-          empresa_id: 342, // empresaId,
-        },
-      });
+      const params: any = {};
+      const ems = currentEMSId ?? getEMSFromURL();
+      if (ems) params.EMS = ems;
+
+      const res = await api.get<LojaOuMarca[]>(ENDPOINT_MARCAS, { params });
       setData(res.data || []);
     } catch (e: any) {
       setError(e?.message || "Falha ao carregar marcas/lojas.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentEMSId]);
 
   const reload = useCallback(() => {
     fetchAll();
@@ -83,11 +95,10 @@ export function MarcasProvider({ children }: { children: React.ReactNode }) {
     fetchAll();
   }, [fetchAll]);
 
+  // Garante empresa selecionada válida
   useEffect(() => {
-    if (!data || data.length === 0) return;
-    const exists = empresaId
-      ? data.some((d) => d.empresa_id === empresaId)
-      : false;
+    if (!data.length) return;
+    const exists = empresaId ? data.some(d => d.empresa_id === empresaId) : false;
     if (!exists) {
       const firstId = data[0].empresa_id;
       setEmpresaId(firstId);
@@ -96,12 +107,11 @@ export function MarcasProvider({ children }: { children: React.ReactNode }) {
   }, [data, empresaId]);
 
   useEffect(() => {
-    if (empresaId != null)
-      localStorage.setItem("empresa_id", String(empresaId));
+    if (empresaId != null) localStorage.setItem("empresa_id", String(empresaId));
   }, [empresaId]);
 
   const getByEmpresaId = useCallback(
-    (id: number) => data.find((d) => d.empresa_id === id),
+    (id: number) => data.find(d => d.empresa_id === id),
     [data]
   );
 
@@ -110,7 +120,7 @@ export function MarcasProvider({ children }: { children: React.ReactNode }) {
     [getByEmpresaId]
   );
 
-  // 🔹 anuncio_id por empresa
+  // anuncio_id VEM do item da FILIAL
   const getAnuncioIdByEmpresaId = useCallback(
     (id: number) => getByEmpresaId(id)?.anuncio_id ?? null,
     [getByEmpresaId]
@@ -121,11 +131,6 @@ export function MarcasProvider({ children }: { children: React.ReactNode }) {
     return getAnuncioIdByEmpresaId(empresaId);
   }, [empresaId, getAnuncioIdByEmpresaId]);
 
-  const currentEMSId = useMemo(() => {
-    if (empresaId == null) return null;
-    return getEMSIdByEmpresaId(empresaId);
-  }, [empresaId, getEMSIdByEmpresaId]);
-
   const value = useMemo(
     () => ({
       data,
@@ -135,8 +140,8 @@ export function MarcasProvider({ children }: { children: React.ReactNode }) {
       empresaId,
       setEmpresaId,
       getByEmpresaId,
-      getEMSIdByEmpresaId,
       currentEMSId,
+      getEMSIdByEmpresaId,
       getAnuncioIdByEmpresaId,
       currentAnuncioId,
     }),
@@ -147,14 +152,12 @@ export function MarcasProvider({ children }: { children: React.ReactNode }) {
       reload,
       empresaId,
       getByEmpresaId,
-      getEMSIdByEmpresaId,
       currentEMSId,
+      getEMSIdByEmpresaId,
       getAnuncioIdByEmpresaId,
       currentAnuncioId,
     ]
   );
 
-  return (
-    <MarcasContext.Provider value={value}>{children}</MarcasContext.Provider>
-  );
+  return <MarcasContext.Provider value={value}>{children}</MarcasContext.Provider>;
 }
