@@ -134,8 +134,11 @@ export default function WhatsappModal({
     const descricaoBase = `Interesse em ${String(tipoInteresse || "").toUpperCase()}`;
     const descricao = produto ? `${descricaoBase} - Produto: ${produto}` : descricaoBase;
 
+
+
     const payload: any = {
       nome,
+      anuncio_id: currentAnuncioId,
       descricao,
       telefones: [{ ddd, numero }],
       tipo_pessoa: "F", // padrão

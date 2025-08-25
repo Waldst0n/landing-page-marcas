@@ -9,27 +9,23 @@ const __dirname = path.dirname(__filename);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Lê BASE_URL e TEST_PARAM do ambiente/argv
 const BASE_URL = (process.env.BASE_URL || "http://localhost:3009").trim();
 const RAW_PARAM = (process.argv[2] || process.env.TEST_PARAM || "").trim();
 
-// Normaliza BASE_URL (sem barra final)
 const base = BASE_URL.replace(/\/$/, "");
 
-// Monta o sufixo SEM re-encode do parâmetro
 let suffix = "/";
 if (RAW_PARAM) {
   if (RAW_PARAM.startsWith("/?") || RAW_PARAM.startsWith("?")) {
-    suffix = RAW_PARAM.startsWith("?") ? `/${RAW_PARAM}` : RAW_PARAM; // ex: "?EMS=..." já passa direto
+    suffix = RAW_PARAM.startsWith("?") ? `/${RAW_PARAM}` : RAW_PARAM;
   } else {
-    suffix = `/?EMS=${encodeURIComponent(RAW_PARAM)}`; // ex: "7d6a4b..." -> "/?EMS=7d6a4b..."
+    suffix = `/?EMS=${encodeURIComponent(RAW_PARAM)}`;
   }
 }
 
 const finalUrl = `${base}${suffix}`;
 console.log("Abrindo:", finalUrl);
 
-// Descobre o Chrome local
 function guessChromePath() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
   const candidates =
@@ -59,7 +55,6 @@ function guessChromePath() {
 
 const executablePath = guessChromePath();
 
-// Cria browser e página
 const browser = await launch({
   headless: "new",
   executablePath,
@@ -68,7 +63,6 @@ const browser = await launch({
 });
 const page = await browser.newPage();
 
-// Logs da página
 page.on("console", (msg) => {
   const type = msg.type();
   const text = msg.text();
@@ -81,10 +75,8 @@ page.on("requestfailed", (req) =>
   console.error("🟧 [requestfailed]", req.url(), req.failure()?.errorText || "")
 );
 
-// Vai para a página
 await page.goto(finalUrl, { waitUntil: "domcontentloaded", timeout: 120000 });
 
-// Espera pela chamada da API /v1/marcas?EMS=...
 try {
   await page.waitForResponse(
     (res) => /\/api\/v1\/marcas\?EMS=/.test(res.url()) && res.status() === 200,
@@ -95,7 +87,6 @@ try {
   console.warn("⚠️ API de marcas não confirmou 200 no tempo esperado.");
 }
 
-// Espera o DOM de lojas carregar corretamente
 try {
   await page.waitForSelector("a[href^='/loja/']", {
     visible: true,
@@ -111,10 +102,8 @@ try {
   throw err;
 }
 
-// Pequena espera para fontes/transições
 await sleep(2000);
 
-// Gera o screenshot final
 const outDir = path.join(__dirname, "../dist");
 if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
