@@ -23,14 +23,10 @@ export default function Produtos() {
   const params = useParams<{ empresaId?: string }>();
   const location = useLocation();
   const state = location.state as LocationState;
-  const { empresaId: ctxEmpresaId, getAnuncioIdByEmpresaId } = useMarcas();
 
-  function handleOpenFinanciamento(id: number) {
-    const prod = produtos.find((p) => p.id === id);
-    setFinProduto({ id, nome: prod?.nome ?? "" });
-    setFinOpen(true);
-  }
+  const { empresaId: ctxEmpresaId, getAnuncioIdByEmpresaId, currentEMSId } = useMarcas();
 
+  // Resolve empresaId (URL > state > localStorage > contexto)
   const empresaId = useMemo(() => {
     if (params?.empresaId) return Number(params.empresaId);
     if (state?.loja?.empresa_id) return Number(state.loja.empresa_id);
@@ -40,39 +36,50 @@ export default function Produtos() {
     return null;
   }, [params?.empresaId, state?.loja?.empresa_id, ctxEmpresaId]);
 
-  const { produtos, loading, erro, token } = useProdutosPorEmpresa(empresaId);
+  // Hook que traz produtos, token e anuncioId vindo do detalhes.meta
+  const {
+    produtos,
+    loading,
+    erro,
+    token,
+    anuncioId: anuncioIdMeta, // ← PRIMÁRIO (detalhes.meta.anuncio_id)
+  } = useProdutosPorEmpresa(empresaId);
 
+  // Fallback do contexto (/v1/marcas)
+  const anuncioIdCtx = empresaId ? getAnuncioIdByEmpresaId(empresaId) : null;
+
+  // Consolidação: hook > contexto > null
+  const anuncioIdFinal = (anuncioIdMeta ?? anuncioIdCtx) ?? null;
+
+  // Estados de modais
   const [open, setOpen] = useState(false);
   const [produtoId, setProdutoId] = useState<number | null>(null);
 
   const [consOpen, setConsOpen] = useState(false);
   const [consPlanos, setConsPlanos] = useState<PlanosDePagamentoProps[]>([]);
-  const [consProduto, setConsProduto] = useState<{
-    id: number;
-    nome: string;
-  } | null>(null);
-  const [modalWhatsappVisible, setWhatsappModalVisible] = useState(false);
+  const [consProduto, setConsProduto] = useState<{ id: number; nome: string } | null>(null);
 
   const [finOpen, setFinOpen] = useState(false);
-  const [finProduto, setFinProduto] = useState<{
-    id: number;
-    nome: string;
-  } | null>(null);
+  const [finProduto, setFinProduto] = useState<{ id: number; nome: string } | null>(null);
+
+  const [modalWhatsappVisible, setWhatsappModalVisible] = useState(false);
 
   function handleOpenSaibaMais(id: number) {
     setProdutoId(id);
     setOpen(true);
   }
 
+  function handleOpenFinanciamento(id: number) {
+    const prod = produtos.find((p) => p.id === id);
+    setFinProduto({ id, nome: prod?.nome ?? "" });
+    setFinOpen(true);
+  }
+
   function handleOpenFinanciamentoFromSaibaMais() {
     if (!produtoId) return;
     const prod = produtos.find((p) => p.id === produtoId);
     setFinProduto({ id: produtoId, nome: prod?.nome ?? "" });
-
-    // opcional: fecha o Saiba Mais antes de abrir o financiamento
-    setOpen(false);
-
-    // abre o modal de financiamento
+    setOpen(false); // opcional: fecha o "Saiba Mais" antes
     setFinOpen(true);
   }
 
@@ -97,6 +104,7 @@ export default function Produtos() {
     }
   }
 
+  // Guardas de UI
   if (empresaId == null) {
     return (
       <div className="max-w-5xl mx-auto p-6">
@@ -129,16 +137,13 @@ export default function Produtos() {
       </div>
     );
   }
-  const anuncioId = empresaId ? getAnuncioIdByEmpresaId(empresaId) : undefined;
-
-  // Get anuncioId for the current empresaId
 
   return (
     <section className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 mt-6">
-      <div className="flex items-center justify-center ">
-        <h2 className="text-xl font-semibold"></h2>
+      <div className="flex items-center justify-center">
+        <h2 className="text-xl font-semibold" />
         <Link
-          to="/"
+          to={`/?EMS=${currentEMSId}`}
           className="bg-red-500 hover:bg-red-600 transition-all px-4 py-2 rounded-full text-white font-bold"
         >
           Voltar à página inicial
@@ -195,21 +200,25 @@ export default function Produtos() {
         onOpenWhatsapp={() => setWhatsappModalVisible(true)}
       />
 
+      {/* Modal "Financiamento" */}
       <FinanciamentoModal
         open={finOpen}
         onClose={() => setFinOpen(false)}
         produto={finProduto?.nome ?? ""}
         produtoId={finProduto?.id ?? 0}
         tokenAccess={token ?? undefined}
+        meta={{ anuncio_id: anuncioIdFinal }}
       />
 
+
+      {/* Modal "WhatsApp" — envia anuncio_id consolidado */}
       <WhatsappModal
         open={modalWhatsappVisible}
         onClose={() => setWhatsappModalVisible(false)}
         tipoInteresse="Página de Vendas"
         meta={{
           access: token ?? undefined,
-          anuncio_id: anuncioId,
+          anuncio_id: anuncioIdFinal, // ✅ detalhes.meta > contexto
         }}
       />
     </section>

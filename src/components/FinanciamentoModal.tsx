@@ -4,6 +4,7 @@ import { postOportunidade, digits } from "../services/marketing";
 import { useMarcas } from "../contexts/MarcasContext";
 
 type Meta = { access?: string; anuncio_id?: number | null };
+
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -14,6 +15,9 @@ type Props = {
 };
 
 const AUTO_CLOSE_MS = 2200;
+
+// garante string só com dígitos (independente do que digits() retorne)
+const onlyDigits = (v: unknown) => String(v ?? "").replace(/\D/g, "");
 
 export default function FinanciamentoModal({
   open,
@@ -33,7 +37,7 @@ export default function FinanciamentoModal({
 
   const { currentAnuncioId, getAnuncioIdByEmpresaId, empresaId } = useMarcas();
 
-  // prioridade: meta.anuncio_id -> contexto atual -> (opcional) buscar por empresa selecionada
+  // prioridade: meta.anuncio_id -> contexto atual -> por empresa selecionada
   const anuncioId =
     meta?.anuncio_id ??
     currentAnuncioId ??
@@ -73,7 +77,7 @@ export default function FinanciamentoModal({
     }
   }, [open]);
 
-  // helpers de formatação
+  // helpers de formatação (apenas UI)
   const formatCurrency = (v: string) => {
     const n = Number(v.replace(/\D/g, "")) / 100;
     if (!isFinite(n)) return "";
@@ -108,8 +112,7 @@ export default function FinanciamentoModal({
     else if (name === "cpf") value = formatCPF(String(value));
     else if (name === "ddd") value = formatDDD(String(value));
     else if (name === "telefone") value = formatTelefone(String(value));
-    else if (type === "checkbox")
-      value = (e.target as HTMLInputElement).checked;
+    else if (type === "checkbox") value = (e.target as HTMLInputElement).checked;
 
     setForm((s) => ({ ...s, [name]: value }));
   };
@@ -136,32 +139,56 @@ export default function FinanciamentoModal({
       return;
     }
 
+    // normaliza DDD/cel como dígitos
+    const dddDigits = onlyDigits(digits(form.ddd)).slice(0, 2);
+    const rawCelDigits = onlyDigits(digits(form.telefone));
+
+    // se vier 8 dígitos, prefixa "9"
+    const celDigits = rawCelDigits.length === 8 ? `9${rawCelDigits}` : rawCelDigits;
+
+    // valida DDD=2 e CEL=9
+    if (dddDigits.length !== 2 || celDigits.length !== 9) {
+      setErro("Informe DDD (2 dígitos) e celular com 9 dígitos (ex: 99999-9999).");
+      scrollToMessage();
+      return;
+    }
+
+    // garante produtoId numérico
+    const produtoIdNum = Number(produtoId);
+    if (!Number.isFinite(produtoIdNum)) {
+      setErro("Produto inválido.");
+      scrollToMessage();
+      return;
+    }
+
     try {
       setSubmitting(true);
 
-      const payload = {
+      const payload: any = {
         cpf_cnpj: form.cpf,
         estagio_id: 1,
-        anuncio_id: anuncioId ?? undefined,
         nome: form.nomeCompleto,
         tipo_pessoa: "F" as const,
         sexo: "O" as const,
         descricao: `Interesse em FINANCIAMENTO. Entrada: ${form.valorEntrada}. Data de nascimento: ${form.dataNascimento}. Possui CNH? ${form.possuiCnh}.`,
         telefones: [
           {
-            ddd: Number(digits(form.ddd)),
-            numero: Number(digits(form.telefone)),
+            ddd: Number(dddDigits),
+            numero: Number(celDigits),
           },
         ],
-        produtos: [{ id: Number(produtoId), quantidade: 1 }],
+        produtos: [{ id: produtoIdNum, quantidade: 1 }],
         origem: "financiamento",
       };
 
+      // envia anuncio_id somente se existir
+      if (anuncioId != null) {
+        payload.anuncio_id = Number(anuncioId);
+      }
+
       await postOportunidade(token, payload);
 
-      setSucesso(
-        "Pronto! Recebemos seus dados. Um vendedor entrará em contato em breve."
-      );
+      setSucesso("Pronto! Recebemos seus dados. Um vendedor entrará em contato em breve.");
       scrollToMessage();
 
       // limpa
@@ -196,6 +223,7 @@ export default function FinanciamentoModal({
 
   return (
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
+      {/* overlay */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="fixed inset-0 flex items-center justify-center p-4">
         <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl max-h-[90vh] sm:max-h-[85vh] flex flex-col overflow-hidden">
@@ -210,10 +238,7 @@ export default function FinanciamentoModal({
             </button>
           </div>
 
-          <div
-            ref={contentRef}
-            className="px-6 py-5 overflow-y-auto"
-          >
+          <div ref={contentRef} className="px-6 py-5 overflow-y-auto">
             {/* bloco das mensagens */}
             <div ref={messageRef}>
               {erro && (
@@ -278,7 +303,7 @@ export default function FinanciamentoModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block textsm font-medium text-gray-700">
                   Nome Completo
                 </label>
                 <input

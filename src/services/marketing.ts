@@ -15,6 +15,7 @@ export type DetalhesPagina = {
     empresa_modelo_site_id: string;
   }>;
   meta: {
+    canais_contato: any;
     empresa_id: number;
     anuncio_id: number | null;
     empresa_logo?: string | null;

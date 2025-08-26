@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useMarcas } from "../contexts/MarcasContext";
 
 export default function Home() {
-  const { data: lojas, loading, error, reload, setEmpresaId } = useMarcas();
+  const { data: lojas, loading, error, reload, setEmpresaId, currentEMSId } = useMarcas();
 
   // Carrega as marcas apenas se ainda não estiverem carregadas
   useEffect(() => {
@@ -45,7 +45,7 @@ export default function Home() {
         {lojas.map((loja) => (
           <Link
             key={loja.empresa_id}
-            to={`/loja/${loja.empresa_id}`}
+            to={`/loja/${loja.empresa_id}?EMS=${currentEMSId}`}
             state={{ loja }}
             onClick={() => handleSelectLoja(loja.empresa_id)}
             className="w-full max-w-3xl bg-gray-600 text-white font-semibold py-4 rounded-full shadow-sm hover:bg-gray-700 transition px-6 text-center"

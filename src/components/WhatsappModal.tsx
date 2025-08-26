@@ -63,7 +63,6 @@ export default function WhatsappModal({
   produtoId,
   tipoInteresse,
   meta,
-  mensagemPersonalizada,
   whatsappContato,
   tokenAccess,
 }: Props) {
@@ -72,6 +71,10 @@ export default function WhatsappModal({
   const [submitting, setSubmitting] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
+
+  useEffect(() => {
+    console.log(currentAnuncioId, anuncioId, empresaId, meta);
+  }, []);
 
   // trava scroll quando abre
   useEffect(() => {
@@ -110,6 +113,7 @@ export default function WhatsappModal({
     currentAnuncioId ??
     (empresaId ? getAnuncioIdByEmpresaId(empresaId) : null);
 
+
   // token (meta tem prioridade; fallback prop)
   const token = (meta?.access ?? tokenAccess ?? "").trim();
 
@@ -136,18 +140,19 @@ export default function WhatsappModal({
 
 
 
+
+
+
     const payload: any = {
       nome,
-      anuncio_id: currentAnuncioId,
+      anuncio_id: anuncioId != null ? Number(anuncioId) : null,
       descricao,
       telefones: [{ ddd, numero }],
-      tipo_pessoa: "F", // padrão
-      sexo: "O",        // padrão
+      tipo_pessoa: "F",
+      sexo: "O",
       estagio_id: 1,
       origem: "whatsapp-modal",
     };
-
-    if (anuncioId != null) payload.anuncio_id = Number(anuncioId);
     if (produtoId != null && !isNaN(Number(produtoId))) {
       payload.produtos = [{ id: Number(produtoId), quantidade: 1 }];
     }

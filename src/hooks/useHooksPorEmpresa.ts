@@ -1,11 +1,12 @@
 // src/hooks/useProdutosPorEmpresa.ts
 import { useEffect, useMemo, useState } from "react";
 import { useMarcas } from "../contexts/MarcasContext";
-import {
-  getDetalhesPagina,
-  getPsCatalog,
-  type ProdutoCatalogo,
-} from "../services/marketing";
+import { getDetalhesPagina, getPsCatalog, type ProdutoCatalogo } from "../services/marketing";
+
+type CanalContato = {
+  identificador?: string;
+  canal?: { nome?: string };
+};
 
 export function useProdutosPorEmpresa(empresaId: number | null) {
   const { getEMSIdByEmpresaId } = useMarcas();
@@ -18,6 +19,11 @@ export function useProdutosPorEmpresa(empresaId: number | null) {
   const [token, setToken] = useState<string | null>(null);
   const [params, setParams] = useState<Map<string, string>>(new Map());
   const [metaEmpresaId, setMetaEmpresaId] = useState<number | null>(null);
+
+  // 🔥 novos: anuncioId + canaisContato + meta bruto (se quiser repassar)
+  const [anuncioId, setAnuncioId] = useState<number | null>(null);
+  const [canaisContato, setCanaisContato] = useState<CanalContato[]>([]);
+  const [meta, setMeta] = useState<any>(null);
 
   const emsId = useMemo(
     () => (empresaId ? getEMSIdByEmpresaId(empresaId) : null),
@@ -33,46 +39,45 @@ export function useProdutosPorEmpresa(empresaId: number | null) {
       try {
         const detalhes = await getDetalhesPagina(emsId.trim());
 
-        const access = detalhes.meta?.access as string;
-        const tokenEmpresaId = Number(detalhes.meta?.empresa_id);
+        const metaResp = detalhes?.meta ?? {};
+        const access = metaResp?.access as string | undefined;
+        const tokenEmpresaId = Number(metaResp?.empresa_id);
 
-        // transforma params[] -> Map para facilitar no card
+        // ⬇️ capturar anuncio_id + canais_contato
+        const anuncioFromMeta = Number(metaResp?.anuncio_id);
+        const anuncioOk = Number.isFinite(anuncioFromMeta) ? anuncioFromMeta : null;
+        const canais = Array.isArray(metaResp?.canais_contato) ? metaResp.canais_contato : [];
+
+        // transforma params[] -> Map
         const paramsMap = new Map<string, string>(
-          (detalhes.params ?? []).map((p: any) => [
-            String(p.chave),
-            String(p.valor ?? ""),
-          ])
+          (detalhes.params ?? []).map((p: any) => [String(p.chave), String(p.valor ?? "")])
         );
 
         if (!ativo) return;
 
+        setMeta(metaResp);
         setToken(access ?? null);
         setParams(paramsMap);
-        setMetaEmpresaId(
-          Number.isFinite(tokenEmpresaId) ? tokenEmpresaId : null
-        );
+        setMetaEmpresaId(Number.isFinite(tokenEmpresaId) ? tokenEmpresaId : null);
+        setAnuncioId(anuncioOk);
+        setCanaisContato(canais);
 
-        const catalogo = await getPsCatalog(access);
+        // ⚠️ se não tiver token, evita chamar catálogo
+        let catalogo: ProdutoCatalogo[] = [];
+        if (access) {
+          catalogo = await getPsCatalog(access);
+        }
 
-        // alvo: prioriza o ID do token; se não vier, usa o da rota
-        const alvoId = Number.isFinite(tokenEmpresaId)
-          ? tokenEmpresaId
-          : Number(empresaId);
-
-        // normaliza e filtra
-        const filtrados = catalogo.filter(
-          (p) => Number(p.empresa_id) === alvoId
-        );
-
-        // fallback: se o filtro zerar mas o catálogo tem itens, mostra todos
+        const alvoId = Number.isFinite(tokenEmpresaId) ? tokenEmpresaId : Number(empresaId);
+        const filtrados = catalogo.filter((p) => Number(p.empresa_id) === alvoId);
         const listaFinal = filtrados.length ? filtrados : catalogo;
 
         setProdutos(dedup(listaFinal));
 
-        // Debug opcional
         console.debug("[Produtos]", {
           empresaIdRota: empresaId,
           tokenEmpresaId,
+          anuncioId: anuncioOk,
           totalCatalogo: catalogo.length,
           aposFiltro: filtrados.length,
         });
@@ -88,8 +93,8 @@ export function useProdutosPorEmpresa(empresaId: number | null) {
     };
   }, [empresaId, emsId]);
 
-  // agora o hook expõe token/params/metaEmpresaId também
-  return { produtos, loading, erro, emsId, token, params, metaEmpresaId };
+  // agora o hook expõe token/params/metaEmpresaId + anuncioId/canaisContato/meta
+  return { produtos, loading, erro, emsId, token, params, metaEmpresaId, anuncioId, canaisContato, meta };
 }
 
 // evita duplicados por id
