@@ -1,9 +1,18 @@
 import { useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useMarcas } from "../contexts/MarcasContext";
+import { getDetalhesPagina } from "../services/marketing";
 
 export default function Home() {
-  const { data: lojas, loading, error, reload, setEmpresaId, currentEMSId } = useMarcas();
+  const {
+    data: lojas,
+    loading,
+    error,
+    reload,
+    setEmpresaId,
+    currentEMSId,
+    fetchTokenAfiliado
+  } = useMarcas();
 
   // Carrega as marcas apenas se ainda não estiverem carregadas
   useEffect(() => {
@@ -11,12 +20,23 @@ export default function Home() {
   }, [lojas.length, reload]);
 
   const handleSelectLoja = useCallback(
-    (empresaId: number) => {
+    async (empresaId: number) => {
       setEmpresaId(empresaId);
       localStorage.setItem("empresa_id", String(empresaId));
+
+      try {
+        const tokenAfiliado = await fetchTokenAfiliado(empresaId);
+        if (tokenAfiliado) {
+          const detalhes = await getDetalhesPagina(empresaId, tokenAfiliado);
+          console.log("Detalhes da página:", detalhes);
+        }
+      } catch (err) {
+        console.error("Erro ao buscar detalhes da filial:", err);
+      }
     },
-    [setEmpresaId]
+    [setEmpresaId, fetchTokenAfiliado]
   );
+
 
   if (loading) {
     return (

@@ -1,7 +1,11 @@
 // src/hooks/useProdutosPorEmpresa.ts
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMarcas } from "../contexts/MarcasContext";
-import { getDetalhesPagina, getPsCatalog, type ProdutoCatalogo } from "../services/marketing";
+import {
+  getDetalhesPagina,
+  getPsCatalog,
+  type ProdutoCatalogo,
+} from "../services/marketing";
 
 type CanalContato = {
   identificador?: string;
@@ -9,48 +13,55 @@ type CanalContato = {
 };
 
 export function useProdutosPorEmpresa(empresaId: number | null) {
-  const { getEMSIdByEmpresaId } = useMarcas();
+  const { fetchTokenAfiliado } = useMarcas();
 
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [produtos, setProdutos] = useState<ProdutoCatalogo[]>([]);
 
-  // NOVOS estados expostos
+  // Estados expostos
   const [token, setToken] = useState<string | null>(null);
   const [params, setParams] = useState<Map<string, string>>(new Map());
   const [metaEmpresaId, setMetaEmpresaId] = useState<number | null>(null);
-
-  // 🔥 novos: anuncioId + canaisContato + meta bruto (se quiser repassar)
   const [anuncioId, setAnuncioId] = useState<number | null>(null);
   const [canaisContato, setCanaisContato] = useState<CanalContato[]>([]);
   const [meta, setMeta] = useState<any>(null);
 
-  const emsId = useMemo(
-    () => (empresaId ? getEMSIdByEmpresaId(empresaId) : null),
-    [empresaId, getEMSIdByEmpresaId]
-  );
-
   useEffect(() => {
     let ativo = true;
+
     async function run() {
-      if (!empresaId || !emsId) return;
+      if (!empresaId) return;
       setLoading(true);
       setErro(null);
+
       try {
-        const detalhes = await getDetalhesPagina(emsId.trim());
+        // 1) Busca token da filial
+        const tokenAfiliado = await fetchTokenAfiliado(empresaId);
+        if (!tokenAfiliado) throw new Error("Token da filial não encontrado");
+
+        // 2) Busca detalhes com empresaId + token da filial
+        const detalhes = await getDetalhesPagina(empresaId, tokenAfiliado);
 
         const metaResp = detalhes?.meta ?? {};
-        const access = metaResp?.access as string | undefined;
+        const access = tokenAfiliado;
         const tokenEmpresaId = Number(metaResp?.empresa_id);
 
-        // ⬇️ capturar anuncio_id + canais_contato
+        // anuncio_id + canais_contato
         const anuncioFromMeta = Number(metaResp?.anuncio_id);
-        const anuncioOk = Number.isFinite(anuncioFromMeta) ? anuncioFromMeta : null;
-        const canais = Array.isArray(metaResp?.canais_contato) ? metaResp.canais_contato : [];
+        const anuncioOk = Number.isFinite(anuncioFromMeta)
+          ? anuncioFromMeta
+          : null;
+        const canais = Array.isArray(metaResp?.canais_contato)
+          ? metaResp.canais_contato
+          : [];
 
         // transforma params[] -> Map
         const paramsMap = new Map<string, string>(
-          (detalhes.params ?? []).map((p: any) => [String(p.chave), String(p.valor ?? "")])
+          (detalhes.params ?? []).map((p: any) => [
+            String(p.chave),
+            String(p.valor ?? ""),
+          ])
         );
 
         if (!ativo) return;
@@ -58,18 +69,24 @@ export function useProdutosPorEmpresa(empresaId: number | null) {
         setMeta(metaResp);
         setToken(access ?? null);
         setParams(paramsMap);
-        setMetaEmpresaId(Number.isFinite(tokenEmpresaId) ? tokenEmpresaId : null);
+        setMetaEmpresaId(
+          Number.isFinite(tokenEmpresaId) ? tokenEmpresaId : null
+        );
         setAnuncioId(anuncioOk);
         setCanaisContato(canais);
 
-        // ⚠️ se não tiver token, evita chamar catálogo
+        // 3) Busca catálogo de produtos
         let catalogo: ProdutoCatalogo[] = [];
         if (access) {
           catalogo = await getPsCatalog(access);
         }
 
-        const alvoId = Number.isFinite(tokenEmpresaId) ? tokenEmpresaId : Number(empresaId);
-        const filtrados = catalogo.filter((p) => Number(p.empresa_id) === alvoId);
+        const alvoId = Number.isFinite(tokenEmpresaId)
+          ? tokenEmpresaId
+          : Number(empresaId);
+        const filtrados = catalogo.filter(
+          (p) => Number(p.empresa_id) === alvoId
+        );
         const listaFinal = filtrados.length ? filtrados : catalogo;
 
         setProdutos(dedup(listaFinal));
@@ -87,14 +104,24 @@ export function useProdutosPorEmpresa(empresaId: number | null) {
         if (ativo) setLoading(false);
       }
     }
+
     run();
     return () => {
       ativo = false;
     };
-  }, [empresaId, emsId]);
+  }, [empresaId, fetchTokenAfiliado]);
 
-  // agora o hook expõe token/params/metaEmpresaId + anuncioId/canaisContato/meta
-  return { produtos, loading, erro, emsId, token, params, metaEmpresaId, anuncioId, canaisContato, meta };
+  return {
+    produtos,
+    loading,
+    erro,
+    token,
+    params,
+    metaEmpresaId,
+    anuncioId,
+    canaisContato,
+    meta,
+  };
 }
 
 // evita duplicados por id

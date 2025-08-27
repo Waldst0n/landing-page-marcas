@@ -80,22 +80,26 @@ const PLACEHOLDER =
     </text>
   </svg>`);
 
-export async function getDetalhesPagina(empresaModeloSiteId: string) {
+export async function getDetalhesPagina(empresaId: number, tokenFilial: string) {
   const { data } = await api.get<DetalhesPagina>(
-    `/marketing/modelos-sites/${empresaModeloSiteId}/detalhes-pagina-vendas`
-  );
-  return data;
-}
-
-export async function getPsCatalog(token: string) {
-  const { data } = await api.get<ProdutoCatalogo[]>(
-    `/v1/marketing/ps-catalog`,
+    `/marketing/modelos-sites/empresas/${empresaId}/detalhes-pagina-vendas`,
     {
-      params: { token },
+      headers: {
+        "X-Access-Token": tokenFilial,
+      },
     }
   );
   return data;
 }
+
+
+export async function getPsCatalog(token: string) {
+  const { data } = await api.get<ProdutoCatalogo[]>(`/v1/marketing/ps-catalog`, {
+    params: { token },
+  });
+  return data;
+}
+
 
 export const toMediaURL = (caminho?: string | null) => {
   if (!caminho || typeof caminho !== "string") return PLACEHOLDER;
