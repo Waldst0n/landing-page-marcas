@@ -116,11 +116,20 @@ export function MarcasProvider({ children }: { children: React.ReactNode }) {
   const fetchEmpresasAfiliadas = useCallback(async (token: string) => {
     const res = await api.get<LojaOuMarca[]>("/v1/afiliadas", {
       headers: {
-        'x-Access-Token': token
+        "X-Access-Token": token,
       },
     });
-    setData(res.data || []);
+
+    // garante que logo_marca e nome_marca sejam repassados
+    const dataComMarca = (res.data || []).map((a) => ({
+      ...a,
+      logo_marca: a.logo_marca ?? a.logo_empresa, // fallback se vier nulo
+      nome_marca: a.nome_marca ?? a.nome_empresa, // fallback se vier nulo
+    }));
+
+    setData(dataComMarca);
   }, []);
+
 
   const fetchAll = useCallback(async () => {
     setLoading(true);

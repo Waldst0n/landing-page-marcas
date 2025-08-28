@@ -28,7 +28,17 @@ export default function Header() {
   );
 
   const nomeMarca = selected?.nome_marca ?? "";
-  const logoMarca = `${CDN_BASE}${selected?.logo_marca}`;
+  const logoMarca = selected?.logo_marca
+    ? selected.logo_marca.startsWith("http")
+      ? selected.logo_marca
+      : `${CDN_BASE}${selected.logo_marca}`
+    : "/placeholder-logo.svg";
+
+
+
+
+
+  console.log(logoMarca);
 
   if (!selected) {
     return (

@@ -75,16 +75,31 @@ page.on("requestfailed", (req) =>
   console.error("🟧 [requestfailed]", req.url(), req.failure()?.errorText || "")
 );
 
+// log de requests para debug
+page.on("request", (req) => {
+  console.log("➡️ Request:", req.url());
+});
+
 await page.goto(finalUrl, { waitUntil: "domcontentloaded", timeout: 120000 });
 
 try {
   await page.waitForResponse(
-    (res) => /\/api\/v1\/marcas\?EMS=/.test(res.url()) && res.status() === 200,
+    (res) => {
+      const url = res.url();
+      return (
+        res.status() === 200 &&
+        (
+          url.includes("/api/v1/marcas?EMS=") || // compatibilidade antiga
+          url.includes("/marketing/empresas/token") || // novo fluxo
+          url.includes("/v1/afiliadas") // novo fluxo
+        )
+      );
+    },
     { timeout: 60000 }
   );
-  console.log("✅ API /marcas respondida com 200");
+  console.log("✅ API de marcas/afiliadas respondida com 200");
 } catch {
-  console.warn("⚠️ API de marcas não confirmou 200 no tempo esperado.");
+  console.warn("⚠️ Nenhuma API de marcas/afiliadas confirmou 200 no tempo esperado.");
 }
 
 try {
